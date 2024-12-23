@@ -19,10 +19,3 @@ spec:
           image: abdelazizomar/sqlite-webapp
           ports:
             - containerPort: 3000
-          volumeMounts:
-            - mountPath: /usr/src/app/services.db
-              subPath: services.db
-              name: sqlite-db
-      volumes:
-        - name: sqlite-db
-          emptyDir: {}
