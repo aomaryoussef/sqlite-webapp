@@ -1,7 +1,10 @@
 const express = require('express');
+const { parse } = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const app = express();
 const port = 3000;
+
+app.use(express.json());
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./services.db', (err) => {
@@ -12,16 +15,6 @@ const db = new sqlite3.Database('./services.db', (err) => {
     }
 });
 
-// Create or initialize the table
-db.run(`
-    CREATE TABLE IF NOT EXISTS services (
-        name TEXT PRIMARY KEY,
-        version INTEGER DEFAULT 0
-    )
-`, () => {
-    db.run(`INSERT OR IGNORE INTO services (name) VALUES ('service_name')`);
-});
-
 // Helper function to format version
 function formatVersion(version) {
     const major = Math.floor(version / 100); // Major: Every 100
@@ -30,28 +23,47 @@ function formatVersion(version) {
     return `${major}.${minor}.${patch}`;
 }
 
-// API endpoint
+// API endpoint [GET] /:serviceName
 app.get('/:serviceName', (req, res) => {
     const serviceName = req.params.serviceName;
 
+    db.get(`SELECT version FROM services WHERE name = ?`, [serviceName], (err, row) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else if (!row) {
+            res.status(404).json({ error: `Service '${serviceName}' not found.` });
+        } else {
+            res.json({ serviceName, fullVersion: `${row.version + 1}`, version: formatVersion(row.version + 1) });
+            console.log(`[GET]: /:serviceName : service '${serviceName}' to version ${formatVersion(row.version + 1)}`);
+
+        }
+    });
+
+});
+
+// API endpoint [POST] /:serviceName
+app.post('/:serviceName', (req, res) => {
+    const serviceName = req.params.serviceName;
+    const { fullVersion } = req.body;
+
+    if (!fullVersion) {
+        res.status(400).json({ error: "Invalid or missing 'fullVersion' in request body" });
+        return;
+    }
+
+    const newVersion = parseInt(fullVersion);
+
     db.run(
-        `UPDATE services SET version = version + 1 WHERE name = ?`,
-        [serviceName],
+        `UPDATE services SET version = ? WHERE name = ?`,
+        [newVersion, serviceName],
         function (err) {
             if (err) {
                 res.status(500).json({ error: err.message });
                 return;
+            } else {
+                res.status(200).json({ status: "succeeded" });
+                console.log(`[POST]: /:serviceName : Updated service '${serviceName}' to version ${newVersion}`);
             }
-
-            db.get(`SELECT version FROM services WHERE name = ?`, [serviceName], (err, row) => {
-                if (err) {
-                    res.status(500).json({ error: err.message });
-                } else if (!row) {
-                    res.status(404).json({ error: `Service '${serviceName}' not found.` });
-                } else {
-                    res.json({ serviceName, version: formatVersion(row.version) });
-                }
-            });
         }
     );
 });
