@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqlite-webapp
+  labels:
+    app: sqlite-webapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqlite-webapp
+  template:
+    metadata:
+      labels:
+        app: sqlite-webapp
+    spec:
+      containers:
+        - name: sqlite-webapp
+          image: abdelazizomar/sqlite-webapp
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - mountPath: /usr/src/app/services.db
+              subPath: services.db
+              name: sqlite-db
+      volumes:
+        - name: sqlite-db
+          emptyDir: {}
